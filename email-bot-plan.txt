@@ -1,0 +1,28 @@
+https://automatetheboringstuff.com/chapter16/
+
+http://sixteenventures.com/personal-emails
+
+functionalities:
+1. customer email scraping from web pages. Sending them emails
+2. customer email registration notification to the admin
+3. customer email reminder mails and to admin
+4. customer email custom/specific content
+5. admin representation emails for other purposes
+
+workflow:
+read csv file with emails.
+send emails to ids in the csv files with a specific content. 
+content for mails fed from a separate config file
+store information of people who reply to emails. potential contacts. send response to them
+people who respond to email are definite clients.
+notify admin about sign up. Send confirmation email to client
+
+timeline:
+1. read csv file.Send emails.[estimated time: in 10 hours]
+2. read emails and identify potential client from responders.
+[estimated time: in 2-3 days]
+3. send email again[function similar to step 1, content chages- manual in file]
+4. store information of people who reply to email in step 3[in csv][similar tostep 2]
+5. notification mails to admin in step 1, 3, and 4.[]
+6. notification mails to admin in step 4.
+
