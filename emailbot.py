@@ -1,74 +1,117 @@
 #import emailc.py
 #import emailvalidator
 
-import os,pandas as pd,pyzmail as pmail
+import os,sys,pandas as pd,pyzmail as pmail
 
 import smtplib
 
-#import imapclient
+import imapclient
 
 import getpass
+
+STANDARD_EMAIL_ID  = 'arun.balajiee.baci@gmail.com'
+TEST_EMAILS_FILE   = 'testemails.csv'
+MAIL_CONTENTS_FILE = 'mailcontents.csv'
+NUMBER_OF_ARGS     = 5
+MIN_NUMBER_OF_ARGS = 2
 
 # vars
 smtpstr = 'smtp.gmail.com'
 imapstr = 'imap.gmail.com'
 
-corr_email = 'arun.balajiee.baci@gmail.com'
+corr_email = STANDARD_EMAIL_ID if(sys.argv is None or len(sys.argv)<NUMBER_OF_ARGS) else sys.argv[2]
 
-email_crawler = 'emailc.py'		#crawler script path and args
-email_validator = 'emailvalidator.py' 	#validator script path and args
+email_crawler = 'emailc.py'											#crawler script path and args
+email_validator = 'emailvalidator.py' 										#validator script path and args
 
-#emails_csv = 'email.csv'		#Actual file path
-emails_csv  = 'testemails.csv'		#Test file path
+#emails_csv = 'email.csv'											#Actual file path
+emails_csv  = TEST_EMAILS_FILE if(sys.argv is None or len(sys.argv)<NUMBER_OF_ARGS) else sys.argv[3]		#Test file path
+
+MAIL_CONTENTS_FILE = MAIL_CONTENTS_FILE if(sys.argv is None or len(sys.argv)<NUMBER_OF_ARGS) else sys.argv[4]  #MAIL_CONTENTS
 
 
-
-MAIL_CONTENTS_FILE = 'mailcontents.csv'
 
 def emailbot():
 #	run_emailcrawler()
 
 #	df = run_emailvalidator()
-
-	usesmtpobj(smtpstr,"send",corr_email)
-
-#	useimapobj(imapstr,"read")
+	print sys.argv
+	if sys.argv is not None and len(sys.argv)>=MIN_NUMBER_OF_ARGS and sys.argv[1] == "send":
+		usesmtpobj(smtpstr,"send",corr_email)
+	if sys.argv is not None and len(sys.argv)>=MIN_NUMBER_OF_ARGS and sys.argv[1] == "read":
+		useimapobj(imapstr,"read",corr_email)
 
 def usesmtpobj(smtpConnstr, type,corr_email):
+	try:
+		smtpObj = connectsmtp(smtpConnstr)
 
-	smtpObj = connectsmtp(smtpConnstr)
+		print smtpObj.ehlo()
 
-	print smtpObj.ehlo()
+		print smtpObj.starttls()
 
-	print smtpObj.starttls()
+		print smtpObj.login(corr_email,getpass.getpass("Email Password:"))
 
-	print smtpObj.login(corr_email,getpass.getpass())
+		if type == "send":
 
-	if type == "send":
+			mails_to = loadEmailIds()
+	
+		        mail_from = corr_email
+	
+			mail_contents = loadmailcontents()
+	
+			result = pd.merge(mails_to,mail_contents)
 
-		mails_to = loadEmailIds()
+# 			read from config file for this.
+			for idx in range(0,len(result)):
+				try:
+#					print 'mail\'s content: ' + result.mail_content[idx]
+					smtpsendmail(smtpObj,mail_from,mails_to.email[idx], result.mail_content[idx])
+				except ValueError,error:
+					print 'Value Error occured %s' ,error
+#					killconnect(smtpObj)
 
-	        mail_from = corr_email
+		killconnect(smtpObj)
+	except smtplib.SMTPAuthenticationError,error:
+		print str(error) + 'occured'
 
-		mail_contents = loadmailcontents()
+def useimapobj(imapstr,type,corr_email):
+	imapObj = imapclient.IMAPClient(imapstr,use_uid=True, ssl=True)
+	imapObj.login(corr_email,getpass.getpass("Email Password:"))
 
-		result = merge(mails_to,mail_contents,'inner')
+	inbox_details = imapObj.select_folder('INBOX',readonly=True)
+	print('%d messages in INBOX' % inbox_details['EXISTS'])
 
-# 		read from config file for this.
-		for mail_to in result['email']:
-			idx = [result.email == mail_to]
-			smtpsendmail(smtpObj,mail_from,mail_to, result[idx].mail_content)
+	UIDS = imapObj.search(['FROM','arun.balajiee.baci@gmail.com'])
 
-	killconnect(smtpObj)
+	print("%d messages that aren't deleted" % len(UIDS))
+	
+#	print UIDS
+	
+	rawMessages = imapObj.fetch(UIDS,['BODY[]','FLAGS'])
 
+	for items in rawMessages:
+#		print items
+		message = pmail.PyzMessage.factory(rawMessages[items]['BODY[]'])
 
-def useimapobj(imapstr):
-	pass
+		print	'subject' + message.get_subject()
+		for mails_from in message.get_addresses('from'):
+			if mails_from is not None:
+				print 	'from %s'% (mails_from,)
+		for mails_to   in message.get_addresses('to'):
+			if mails_to is not None:
+				print 	'to %s'%(mails_to,)
+
+		if message.text_part.charset is not None:
+			print message.text_part.get_payload().decode(message.text_part.charset)
+	#kill connect
+	imapObj.logout()
+#	pass
 
 def smtpsendmail(smtpObj,mail_from,mail_to,mail_content):
 	if smtpObj is not None:
 		print 'sending email to ' + mail_to
-		smtpObj.sendmail(mail_from, [mail_to],mail_content)
+		print 'mail\'s content' + mail_content
+		smtpObj.sendmail(mail_from, [mail_to],'{0}'.format(mail_content))
 
 def smtpreadmail(imapObj):
 	pass
